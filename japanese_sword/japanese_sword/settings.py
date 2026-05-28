@@ -15,7 +15,7 @@ from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-ENV_FILE = BASE_DIR.parent / ".env"
+ENV_FILE = BASE_DIR.parent / ".env"  # путь к файлу .env
 
 
 def load_env_file(path):
@@ -46,22 +46,22 @@ def env_list(name, default=""):
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
-load_env_file(ENV_FILE)
+load_env_file(ENV_FILE)  # чтение .env файла с последующей записью в os.environ
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
+SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]  # вытягиваем секретный ключ (value) через ключ словаря (key)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env_bool("DJANGO_DEBUG", default=False)
+DEBUG = env_bool("DJANGO_DEBUG", default=False)  # затаем булево значение которое записано в .env
 
-ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS")
+ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS")  # выводим список из ip адресов
 
 
-# Application definition
+# Приложения которые видит проект
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -78,7 +78,7 @@ INSTALLED_APPS = [
     'users'
 ]
 
-AUTH_USER_MODEL = 'users.User'
+AUTH_USER_MODEL = 'users.User'  # Используется кастомная модель user из соответствующего приложения
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
