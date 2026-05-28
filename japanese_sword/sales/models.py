@@ -18,9 +18,15 @@ class Sale(models.Model):
     quantity = models.PositiveIntegerField()  # сколько едениц продал (только плюсовое значение)
     sale_price = models.DecimalField(max_digits=10, decimal_places=2)  # цена на момент продажи
     cost_price = models.DecimalField(max_digits=10, decimal_places=2)  # себестоимость
-    profit = models.DecimalField(max_digits=10, decimal_places=2)  # прибыль
+    profit = models.DecimalField(max_digits=10, decimal_places=2, editable=False)  # прибыль (не редактируется)
     comment = models.TextField(blank=True)  # комментарий
     created_at = models.DateTimeField(auto_now_add=True)  # когда продал
+
+
+    def save(self, *args, **kwargs):
+        self.profit = (self.sale_price - self.cost_price) * self.quantity
+        super().save(*args, **kwargs)
+
 
     def __str__(self):
         return f'Sale #{self.pk} - {self.product}'
