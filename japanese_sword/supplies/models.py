@@ -4,6 +4,42 @@ from django.db import models
 
 
 class Supply(models.Model):
+    def recalculate_costs(self):
+        items = list(self.items.all())
+        if not items:
+            return
+
+        total_clean_weight = sum(item.unit_weight * item.quantity for item in items)
+        if not total_clean_weight or not self.total_package_weight:
+            return
+
+        shipping_price_per_kg = self.total_shipping_cost / self.total_package_weight
+        commission_multiplier = Decimal('1.00') + (self.cargo_commission_percent / Decimal('100.00'))
+
+        for item in items:
+            item_clean_weight = item.unit_weight * item.quantity
+            item_package_weight = self.total_package_weight * item_clean_weight / total_clean_weight
+            allocated_shipping_cost = item_package_weight * shipping_price_per_kg
+
+            product_cost_rub = (
+                (item.price_yuan * item.quantity + item.china_shipping_yuan)
+                * commission_multiplier
+                * self.yuan_rate
+            )
+
+            item.product_cost_rub = product_cost_rub
+            item.allocated_shipping_cost = allocated_shipping_cost
+            item.calculated_unit_cost = (
+                product_cost_rub + allocated_shipping_cost
+            ) / item.quantity
+
+            item.save(update_fields=[
+                'product_cost_rub',
+                'allocated_shipping_cost',
+                'calculated_unit_cost',
+            ])
+
+            
     manufacturer = models.ForeignKey(
         'manufacturers.Manufacturer',
         on_delete=models.PROTECT,
