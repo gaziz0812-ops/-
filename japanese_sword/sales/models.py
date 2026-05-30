@@ -85,3 +85,33 @@ class Sale(models.Model):
                 raise ValidationError({
                     'quantity': f'Недостаточно товара на складе. Доступно: {available_quantity}'
                 })
+
+
+class SaleCostAllocation(models.Model):
+    sale = models.ForeignKey(
+        Sale,
+        on_delete=models.CASCADE,
+        related_name='cost_allocations',
+        verbose_name='Продажа',
+    )
+    stock_batch = models.ForeignKey(
+        'stock.StockBatch',
+        on_delete=models.PROTECT,
+        related_name='sale_allocations',
+        verbose_name='Партия товара',
+    )
+    quantity = models.PositiveIntegerField('Количество')
+    unit_cost = models.DecimalField('Себестоимость 1 шт., руб.', max_digits=12, decimal_places=2)
+    total_cost = models.DecimalField('Себестоимость списания, руб.', max_digits=12, decimal_places=2, editable=False)
+    created_at = models.DateTimeField('Создано', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Списание себестоимости'
+        verbose_name_plural = 'Списания себестоимости'
+
+    def save(self, *args, **kwargs):
+        self.total_cost = self.unit_cost * self.quantity
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'Продажа #{self.sale_id} | {self.quantity} шт. из партии #{self.stock_batch_id}'

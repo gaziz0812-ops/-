@@ -32,3 +32,26 @@ class StockMovement(models.Model):
 
     def __str__(self):
         return f'{self.product} | {self.movement_type} | {self.quantity}'
+
+
+class StockBatch(models.Model):
+    product = models.ForeignKey(
+        'products.Product',
+        on_delete=models.PROTECT,
+        related_name='stock_batches',
+        verbose_name='Товар'
+    )
+    quantity = models.PositiveIntegerField('Количество в партии')
+    unit_cost = models.DecimalField('Себестоимость 1 шт., руб.', max_digits=12, decimal_places=2)
+    remaining_quantity = models.PositiveIntegerField('Остаток в партии')
+    source_type = models.CharField('Тип источника', max_length=50)
+    source_id = models.PositiveBigIntegerField('ID источника')
+    created_at = models.DateTimeField('Создано', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'партию товара'
+        verbose_name_plural = 'Партии товаров'
+        ordering = ('created_at', 'id')
+
+    def __str__(self):
+        return f'{self.product} | осталось {self.remaining_quantity} из {self.quantity}'
