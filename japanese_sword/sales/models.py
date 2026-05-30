@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.db import models
 from django.db import transaction
-
+from django.core.exceptions import ValidationError
 
 class Sale(models.Model):
     product = models.ForeignKey(
@@ -64,3 +64,24 @@ class Sale(models.Model):
 
     def __str__(self):
         return f'Продажа #{self.pk} - {self.product}'
+
+    def clean(self):
+        super().clean()
+
+        if self.product_id and self.quantity:
+            available_quantity = self.product.stock_balance
+
+            if self.pk:
+                current_sale_quantity = (
+                    Sale.objects
+                    .filter(pk=self.pk)
+                    .values_list('quantity', flat=True)
+                    .first()
+                ) or 0
+
+                available_quantity += current_sale_quantity
+
+            if self.quantity > available_quantity:
+                raise ValidationError({
+                    'quantity': f'Недостаточно товара на складе. Доступно: {available_quantity}'
+                })

@@ -41,7 +41,7 @@
         return preview;
     }
 
-    function setPreview(basePrice, discountValue, unitSalePrice, totalSaleAmount, profit) {
+    function setPreview(basePrice, stockBalance, discountValue, unitSalePrice, totalSaleAmount, profit) {
         var preview = ensurePreview();
         if (!preview) {
             return;
@@ -49,6 +49,7 @@
 
         preview.innerHTML = [
             '<strong>Начальная цена:</strong> ' + formatMoney(basePrice),
+            '<strong>Остаток:</strong> ' + stockBalance,
             '<strong>Скидка:</strong> ' + formatMoney(discountValue) + '%',
             '<strong>Цена с учетом скидки:</strong> ' + formatMoney(unitSalePrice),
             '<strong>Цена продажи:</strong> ' + formatMoney(totalSaleAmount),
@@ -68,6 +69,7 @@
 
         var selectedOption = product.options[product.selectedIndex];
         var basePrice = parseNumber(selectedOption ? selectedOption.dataset.salePrice : 0);
+        var stockBalance = selectedOption ? selectedOption.dataset.stockBalance || '0' : '0';
         var quantityValue = parseNumber(quantity.value);
         var discountValue = parseNumber(discount.value);
         var costPriceValue = parseNumber(costPrice.value);
@@ -80,7 +82,7 @@
         setReadonlyField('unit_sale_price', formatMoney(unitSalePrice));
         setReadonlyField('total_sale_amount', formatMoney(totalSaleAmount));
         setReadonlyField('profit', formatMoney(profit));
-        setPreview(basePrice, discountValue, unitSalePrice, totalSaleAmount, profit);
+        setPreview(basePrice, stockBalance, discountValue, unitSalePrice, totalSaleAmount, profit);
     }
 
     document.addEventListener('DOMContentLoaded', function () {
