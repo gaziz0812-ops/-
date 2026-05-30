@@ -39,13 +39,7 @@ class Supply(models.Model):
                 'calculated_unit_cost',
             ])
 
-            
-    manufacturer = models.ForeignKey(
-        'manufacturers.Manufacturer',
-        on_delete=models.PROTECT,
-        related_name='supplies',
-        verbose_name='Производитель',
-    )
+
     supply_date = models.DateField('Дата поставки')
     yuan_rate = models.DecimalField('Курс юаня', max_digits=10, decimal_places=4)
     cargo_commission_percent = models.DecimalField(
@@ -65,7 +59,7 @@ class Supply(models.Model):
         verbose_name_plural = 'Поставки'
 
     def __str__(self):
-        return f'Поставка #{self.pk} - {self.manufacturer} - {self.supply_date}'
+        return f'Поставка #{self.pk} - {self.supply_date}'
 
 
 class SupplyItem(models.Model):
@@ -96,6 +90,35 @@ class SupplyItem(models.Model):
 
     def __str__(self):
         return f'{self.product} x {self.quantity}'
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self.sync_stock_movement()
+
+    def delete(self, *args, **kwargs):
+        self.delete_stock_movement()
+        super().delete(*args, **kwargs)
+
+    def sync_stock_movement(self):
+        from stock.models import StockMovement
+
+        StockMovement.objects.update_or_create(
+            source_type='supply_item',
+            source_id=self.pk,
+            defaults={
+                'product': self.product,
+                'movement_type': StockMovement.MovementType.INBOUND,
+                'quantity': self.quantity,
+            },
+        )
+
+    def delete_stock_movement(self):
+        from stock.models import StockMovement
+
+        StockMovement.objects.filter(
+            source_type='supply_item',
+            source_id=self.pk,
+        ).delete()
 
 
 class ManualSupply(models.Model):
@@ -134,9 +157,35 @@ class ManualSupplyItem(models.Model):
         verbose_name = 'Ручная позиция поставки'
         verbose_name_plural = 'Ручные позиции поставки'
 
+    def __str__(self):
+        return f'{self.product} x {self.quantity}'
+
     def save(self, *args, **kwargs):
         self.total_cost = self.unit_cost * self.quantity
         super().save(*args, **kwargs)
+        self.sync_stock_movement()
 
-    def __str__(self):
-        return f'{self.product} x {self.quantity}'
+    def delete(self, *args, **kwargs):
+        self.delete_stock_movement()
+        super().delete(*args, **kwargs)
+
+    def sync_stock_movement(self):
+        from stock.models import StockMovement
+
+        StockMovement.objects.update_or_create(
+            source_type='manual_supply_item',
+            source_id=self.pk,
+            defaults={
+                'product': self.product,
+                'movement_type': StockMovement.MovementType.INBOUND,
+                'quantity': self.quantity,
+            },
+        )
+
+    def delete_stock_movement(self):
+        from stock.models import StockMovement
+
+        StockMovement.objects.filter(
+            source_type='manual_supply_item',
+            source_id=self.pk,
+        ).delete()

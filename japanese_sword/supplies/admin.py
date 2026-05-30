@@ -31,7 +31,6 @@ class SupplyAdmin(admin.ModelAdmin):
 
     list_display = (
         'id',
-        'manufacturer',
         'supply_date',
         'yuan_rate',
         'cargo_commission_percent',
@@ -39,12 +38,12 @@ class SupplyAdmin(admin.ModelAdmin):
         'total_package_weight',
         'created_at',
     )
-    list_filter = ('supply_date', 'manufacturer')
-    search_fields = ('manufacturer__name', 'order_url')
+    list_filter = ('supply_date',)
+    search_fields = ('order_url',)
     inlines = (SupplyItemInline,)
     fieldsets = (
         ('Поставка', {
-            'fields': ('manufacturer', 'supply_date', 'order_url', 'comment'),
+            'fields': ('supply_date', 'order_url', 'comment'),
         }),
         ('Расчёт себестоимости', {
             'fields': ('yuan_rate', 'cargo_commission_percent', 'total_shipping_cost', 'total_package_weight'),
