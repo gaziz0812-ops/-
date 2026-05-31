@@ -187,3 +187,32 @@ class SaleCostAllocation(models.Model):
 
     def __str__(self):
         return f'Продажа #{self.sale_id} | {self.quantity} шт. из партии #{self.stock_batch_id}'
+
+
+class SaleReturn(models.Model):
+    class Destination(models.TextChoices):
+        BACK_TO_STOCK = 'back_to_stock', 'Вернуть на продажу'
+        WRITE_OFF = 'write_off', 'Списать'
+
+    sale = models.ForeignKey(
+        Sale,
+        on_delete=models.PROTECT,
+        related_name='returns',
+        verbose_name='Продажа'
+    )
+    quantity = models.PositiveIntegerField('Количество')
+    refund_amount = models.DecimalField('Сумма возврата', max_digits=12, decimal_places=2)
+    destination = models.CharField(
+        'Куда определить товар',
+        max_length=20,
+        choices=Destination.choices,
+    )
+    comment = models.TextField('Комментарий', blank=True)
+    created_at = models.DateTimeField('Создано', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Возврат'
+        verbose_name_plural = 'Возвраты'
+
+    def __str__(self):
+        return f'Возврат #{self.pk} по продаже #{self.sale_id}'

@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import Sale
+from .models import Sale, SaleReturn
 
 
 class ProductPriceSelect(forms.Select):
@@ -43,3 +43,9 @@ class SaleAdminForm(forms.ModelForm):
             str(product.pk): str(product.stock_balance)
             for product in product_field.queryset
         }
+
+
+class SaleReturnAdminForm(forms.ModelForm):
+    class Meta:
+        model = SaleReturn
+        fields = '__all__'
