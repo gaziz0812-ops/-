@@ -32,6 +32,7 @@ class StockMovementAdmin(admin.ModelAdmin):
             'supply_item': 'Позиция поставки',
             'manual_supply_item': 'Ручная позиция поставки',
             'sale_return': 'Возврат',
+            'sale_return_write_off': 'Списание',
         }
         return source_type_names.get(obj.source_type, obj.source_type)
 
@@ -75,7 +76,8 @@ class StockBatchAdmin(admin.ModelAdmin):
             'sale': 'Продажа',
             'supply_item': 'Позиция поставки',
             'manual_supply_item': 'Ручная позиция поставки',
-            'sale_return': 'Возврат'
+            'sale_return': 'Возврат',
+            'sale_return_write_off': 'Списание',
         }
         return source_type_names.get(obj.source_type, obj.source_type)
 

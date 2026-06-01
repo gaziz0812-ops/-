@@ -52,6 +52,26 @@ class SaleAdmin(admin.ModelAdmin):
     class Media:
         js = ('sales/admin_sale_calculator.js',)
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj:
+            return (
+                'product',
+                'customer',
+                'quantity',
+                'discount_percent',
+                'comment',
+                'unit_sale_price',
+                'total_sale_amount',
+                'cost_price',
+                'profit',
+                'created_at',
+            )
+
+        return self.readonly_fields
+
 
 @admin.register(SaleReturn)
 class SaleReturnAdmin(admin.ModelAdmin):
@@ -109,3 +129,19 @@ class SaleReturnAdmin(admin.ModelAdmin):
             'total_sale_amount': str(sale.total_sale_amount),
             'created_at': sale.created_at.strftime('%d.%m.%Y %H:%M'),
         })
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj:
+            return (
+                'sale',
+                'quantity',
+                'refund_amount',
+                'destination',
+                'comment',
+                'created_at',
+            )
+
+        return self.readonly_fields

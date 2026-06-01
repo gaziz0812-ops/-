@@ -252,6 +252,9 @@ class SaleReturn(models.Model):
             super().save(*args, **kwargs)
             self.sync_stock_movements()
 
+            if self.destination == self.Destination.BACK_TO_STOCK:
+                self.restore_sale_batches()
+
     def delete(self, *args, **kwargs):
         with transaction.atomic():
             self.delete_stock_movements()
@@ -285,6 +288,19 @@ class SaleReturn(models.Model):
                 source_type='sale_return_write_off',
                 source_id=self.pk,
             ).delete()
+
+    def restore_sale_batches(self):
+        remaining_quantity = self.quantity
+
+        for allocation in self.sale.cost_allocations.select_related('stock_batch').order_by('created_at', 'id'):
+            if remaining_quantity <= 0:
+                break
+
+            quantity_to_restore = min(allocation.quantity, remaining_quantity)
+            batch = allocation.stock_batch
+            batch.remaining_quantity += quantity_to_restore
+            batch.save(update_fields=['remaining_quantity'])
+            remaining_quantity -= quantity_to_restore
 
     def delete_stock_movements(self):
         from stock.models import StockMovement
