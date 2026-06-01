@@ -5,6 +5,7 @@ from django.db import models
 from django.db import transaction
 from django.core.exceptions import ValidationError
 
+
 class Sale(models.Model):
     product = models.ForeignKey(
         'products.Product',
@@ -213,6 +214,85 @@ class SaleReturn(models.Model):
     class Meta:
         verbose_name = 'Возврат'
         verbose_name_plural = 'Возвраты'
+
+    def clean(self):
+        super().clean()
+
+        if self.sale_id and self.quantity:
+            available_quantity = self.get_available_quantity_to_return()
+
+            if self.pk:
+                current_return_quantity = (
+                    SaleReturn.objects
+                    .filter(pk=self.pk)
+                    .values_list('quantity', flat=True)
+                    .first()
+                ) or 0
+
+                available_quantity += current_return_quantity
+
+            if self.quantity > available_quantity:
+                raise ValidationError({
+                    'quantity': f'Нельзя вернуть больше доступного количества. Доступно к возврату: {available_quantity}'
+                })
+
+    def get_available_quantity_to_return(self):
+        already_returned_quantity = (
+            self.sale.returns
+            .exclude(pk=self.pk)
+            .aggregate(total=models.Sum('quantity'))
+            .get('total')
+        ) or 0
+
+        return self.sale.quantity - already_returned_quantity
+
+    def save(self, *args, **kwargs):
+        with transaction.atomic():
+            self.full_clean()
+            super().save(*args, **kwargs)
+            self.sync_stock_movements()
+
+    def delete(self, *args, **kwargs):
+        with transaction.atomic():
+            self.delete_stock_movements()
+            super().delete(*args, **kwargs)
+
+    def sync_stock_movements(self):
+        from stock.models import StockMovement
+
+        StockMovement.objects.update_or_create(
+            source_type='sale_return',
+            source_id=self.pk,
+            defaults={
+                'product': self.sale.product,
+                'movement_type': StockMovement.MovementType.RETURN,
+                'quantity': self.quantity,
+            },
+        )
+
+        if self.destination == self.Destination.WRITE_OFF:
+            StockMovement.objects.update_or_create(
+                source_type='sale_return_write_off',
+                source_id=self.pk,
+                defaults={
+                    'product': self.sale.product,
+                    'movement_type': StockMovement.MovementType.WRITE_OFF,
+                    'quantity': self.quantity,
+                },
+            )
+        else:
+            StockMovement.objects.filter(
+                source_type='sale_return_write_off',
+                source_id=self.pk,
+            ).delete()
+
+    def delete_stock_movements(self):
+        from stock.models import StockMovement
+
+        StockMovement.objects.filter(
+            source_type__in=['sale_return', 'sale_return_write_off'],
+            source_id=self.pk,
+        ).delete()
 
     def __str__(self):
         return f'Возврат #{self.pk} по продаже #{self.sale_id}'
