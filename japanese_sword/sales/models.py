@@ -25,6 +25,22 @@ class Sale(models.Model):
         related_name='sales',
         verbose_name='Покупатель',
     )
+    order = models.ForeignKey(
+        'orders.Order',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='sales',
+        verbose_name='Заказ',
+    )
+    order_item = models.OneToOneField(
+        'orders.OrderItem',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='sale',
+        verbose_name='Позиция заказа',
+    )
     quantity = models.PositiveIntegerField('Количество')
     discount_percent = models.DecimalField(
         'Скидка, %',
@@ -51,11 +67,20 @@ class Sale(models.Model):
 
     # Переопределяем Django save(), чтобы при сохранении продажи пересчитать деньги и склад.
     def save(self, *args, **kwargs):
-        # Множитель переводит скидку в процентах в коэффициент цены: 10% -> 0.90.
-        discount_multiplier = Decimal('1.00') - (self.discount_percent / Decimal('100.00'))
-
-        self.unit_sale_price = self.product.sale_price * discount_multiplier
-        self.total_sale_amount = self.unit_sale_price * self.quantity
+        if self.order_item_id:
+            # Продажа из заказа берет историческую цену и количество из OrderItem.
+            self.order = self.order_item.order
+            self.product = self.order_item.product
+            self.customer = self.order_item.order.customer
+            self.quantity = self.order_item.quantity
+            self.discount_percent = self.order_item.discount_percent
+            self.unit_sale_price = self.order_item.unit_price_after_discount
+            self.total_sale_amount = self.order_item.total_price
+        else:
+            # Старые ручные продажи временно используют прежнюю логику цены из карточки товара.
+            discount_multiplier = Decimal('1.00') - (self.discount_percent / Decimal('100.00'))
+            self.unit_sale_price = self.product.sale_price * discount_multiplier
+            self.total_sale_amount = self.unit_sale_price * self.quantity
 
         # Временные значения нужны для первого сохранения, пока FIFO еще не посчитал себестоимость.
         self.cost_price = Decimal('0.00')
@@ -159,7 +184,7 @@ class Sale(models.Model):
         ).delete()
 
     def __str__(self):
-        return f'Заказ #{self.pk} - {self.product}'
+        return f'Продажа #{self.pk} - {self.product}'
 
     def clean(self):
         super().clean()
@@ -171,11 +196,11 @@ class Sale(models.Model):
             if self.pk:
                 # При редактировании старую величину продажи временно возвращаем в доступный остаток.
                 current_sale_quantity = (
-                                            Sale.objects
-                                            .filter(pk=self.pk)
-                                            .values_list('quantity', flat=True)
-                                            .first()
-                                        ) or 0
+                    Sale.objects
+                    .filter(pk=self.pk)
+                    .values_list('quantity', flat=True)
+                    .first()
+                ) or 0
 
                 available_quantity += current_sale_quantity
 
@@ -225,6 +250,14 @@ class SaleReturn(models.Model):
         WRITE_OFF = 'write_off', 'Списать'
 
     # Возврат всегда оформляется на основании существующей продажи.
+    order = models.ForeignKey(
+        'orders.Order',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='returns',
+        verbose_name='Заказ',
+    )
     sale = models.ForeignKey(
         Sale,
         on_delete=models.PROTECT,
@@ -247,6 +280,11 @@ class SaleReturn(models.Model):
 
     def clean(self):
         super().clean()
+
+        if self.order_id and self.sale_id and self.sale.order_id != self.order_id:
+            raise ValidationError({
+                'sale': 'Выбранная продажа не относится к указанному заказу.'
+            })
 
         if self.sale_id and self.quantity:
             # Проверяем, сколько товара по этой продаже еще можно вернуть.
@@ -280,6 +318,9 @@ class SaleReturn(models.Model):
 
     def save(self, *args, **kwargs):
         with transaction.atomic():
+            if self.sale_id and not self.order_id:
+                self.order = self.sale.order
+
             # full_clean запускает clean() перед сохранением, чтобы не вернуть больше проданного.
             self.full_clean()
             super().save(*args, **kwargs)
@@ -348,4 +389,4 @@ class SaleReturn(models.Model):
         ).delete()
 
     def __str__(self):
-        return f'Возврат #{self.pk} по заказу #{self.sale_id}'
+        return f'Возврат #{self.pk} по продаже #{self.sale_id}'

@@ -63,3 +63,19 @@ class SaleReturnAdminForm(forms.ModelForm):
     class Meta:
         model = SaleReturn
         fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        sale_field = self.fields.get('sale')
+        if not sale_field:
+            return
+
+        order_id = self.data.get('order') or getattr(self.instance, 'order_id', None)
+
+        if order_id:
+            # Если выбран заказ, список продаж ограничивается продажами этого заказа.
+            sale_field.queryset = Sale.objects.filter(order_id=order_id)
+        else:
+            # Без заказа поле продажи оставляем пустым, чтобы не выбирать позицию вслепую.
+            sale_field.queryset = Sale.objects.none()
