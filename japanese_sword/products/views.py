@@ -10,7 +10,8 @@ from rest_framework.exceptions import ValidationError
 from rest_framework import filters, viewsets
 
 from .models import Product
-from .serializers import ProductSerializer
+from .serializers import ProductDetailSerializer, ProductSerializer
+
 
 # ReadOnlyModelViewSet дает публичному API только чтение: список товаров и один товар.
 class ProductViewSet(viewsets.ReadOnlyModelViewSet):
@@ -74,7 +75,17 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
         # DRF ждет, что get_queryset вернет итоговый queryset для serializer
         return queryset
 
-    # Специальный атрибут DRF: каким serializer превращать Product в JSON
+    # Специальный метод DRF: выбирает serializer в зависимости от действия ViewSet.
+    def get_serializer_class(self):
+        # self.action — специальный атрибут DRF: list для списка, retrieve для одного объекта.
+        if self.action == 'retrieve':
+            return ProductDetailSerializer
+
+        # Для списка товаров оставляем короткий публичный serializer.
+        return ProductSerializer
+
+    # Специальный атрибут DRF: каким serializer превращать Product в JSON.  Если есть get_serializer, то превращается
+    # в атрибут по сериализатор по умолчанию
     serializer_class = ProductSerializer
 
     # Специальный атрибут DRF: эти backend-классы дополнительно обрабатывают queryset.

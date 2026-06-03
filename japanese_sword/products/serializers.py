@@ -30,3 +30,13 @@ class ProductSerializer(serializers.ModelSerializer):
             return "Осталась 1 шт."
 
         return "Нет в наличии"
+
+
+# Этот serializer используется для страницы одного товара: GET /api/products/<id>/
+class ProductDetailSerializer(ProductSerializer):
+    # Meta наследуется от ProductSerializer.Meta, чтобы не дублировать model = Product.
+    class Meta(ProductSerializer.Meta):
+        # В detail-ответ добавляем описание товара, которого нет в коротком списке.
+        fields = ProductSerializer.Meta.fields + (
+            'description',
+        )
