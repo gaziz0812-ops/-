@@ -5,9 +5,12 @@ from .views import ProductViewSet
 
 
 router = DefaultRouter()
-router.register('', ProductViewSet, basename='product') # /api/products/ и /api/products/<id>
+
+# Регистрируем ProductViewSet на корне products.urls: /api/products/ и /api/products/<id>/.
+router.register('', ProductViewSet, basename='product')
 
 
 urlpatterns = [
-    path('', include(router.urls)), # подключаем URL, которые создал router
+    # Подключаем URL, которые автоматически создал DRF router.
+    path('', include(router.urls)),
 ]

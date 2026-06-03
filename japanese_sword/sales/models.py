@@ -6,13 +6,17 @@ from django.db import transaction
 from django.core.exceptions import ValidationError
 
 
+# Sale хранит факт продажи и запускает списание партий по FIFO.
 class Sale(models.Model):
+    # ForeignKey связывает продажу с товаром; related_name дает доступ product.sales.
     product = models.ForeignKey(
         'products.Product',
         on_delete=models.PROTECT,
         related_name='sales',
         verbose_name='Товар',
     )
+
+    # settings.AUTH_USER_MODEL связывает продажу с текущей кастомной моделью пользователя.
     customer = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -45,22 +49,33 @@ class Sale(models.Model):
         verbose_name = 'Продажу'
         verbose_name_plural = 'Продажи'
 
+    # Переопределяем Django save(), чтобы при сохранении продажи пересчитать деньги и склад.
     def save(self, *args, **kwargs):
+        # Множитель переводит скидку в процентах в коэффициент цены: 10% -> 0.90.
         discount_multiplier = Decimal('1.00') - (self.discount_percent / Decimal('100.00'))
 
         self.unit_sale_price = self.product.sale_price * discount_multiplier
         self.total_sale_amount = self.unit_sale_price * self.quantity
+
+        # Временные значения нужны для первого сохранения, пока FIFO еще не посчитал себестоимость.
         self.cost_price = Decimal('0.00')
         self.profit = Decimal('0.00')
 
+        # atomic делает продажу, списание партий и движение склада одной транзакцией БД.
         with transaction.atomic():
+            # Первый super().save() создает продажу в БД и дает ей self.pk.
             super().save(*args, **kwargs)
+
+            # sync_cost_allocations списывает партии FIFO и возвращает общую себестоимость продажи.
             total_cost = self.sync_cost_allocations()
             self.cost_price = total_cost / self.quantity
             self.profit = self.total_sale_amount - total_cost
+
+            # Второй save обновляет только поля, которые стали известны после FIFO.
             super().save(update_fields=['cost_price', 'profit'])
             self.sync_stock_movement()
 
+    # Переопределенный delete() технически откатывает склад, но в админке удаление продаж запрещено.
     def delete(self, *args, **kwargs):
         with transaction.atomic():
             self.restore_cost_allocations()
@@ -70,10 +85,13 @@ class Sale(models.Model):
     def sync_cost_allocations(self):
         from stock.models import StockBatch
 
+        # Сначала возвращаем старые списания этой продажи, чтобы пересчитать FIFO заново без дублей.
         self.restore_cost_allocations()
 
         remaining_quantity = self.quantity
         total_cost = Decimal('0.00')
+
+        # select_for_update блокирует партии на время транзакции, чтобы параллельные продажи не списали одно и то же.
         batches = StockBatch.objects.select_for_update().filter(
             product=self.product,
             remaining_quantity__gt=0,
@@ -87,6 +105,7 @@ class Sale(models.Model):
             batch.remaining_quantity -= quantity_from_batch
             batch.save(update_fields=['remaining_quantity'])
 
+            # SaleCostAllocation запоминает, сколько товара эта продажа взяла из конкретной партии.
             allocation = SaleCostAllocation.objects.create(
                 sale=self,
                 stock_batch=batch,
@@ -97,6 +116,7 @@ class Sale(models.Model):
             remaining_quantity -= quantity_from_batch
 
         if remaining_quantity > 0:
+            # Если партий не хватило, вся transaction.atomic() откатит продажу и изменения склада.
             raise ValidationError({
                 'quantity': 'Недостаточно товара в партиях для FIFO-списания.'
             })
@@ -106,6 +126,7 @@ class Sale(models.Model):
     def restore_cost_allocations(self):
         from stock.models import StockBatch
 
+        # cost_allocations — related_name из SaleCostAllocation.sale; это все партии текущей продажи.
         allocations = self.cost_allocations.select_related('stock_batch')
         for allocation in allocations:
             batch = StockBatch.objects.select_for_update().get(pk=allocation.stock_batch_id)
@@ -117,6 +138,7 @@ class Sale(models.Model):
     def sync_stock_movement(self):
         from stock.models import StockMovement
 
+        # update_or_create не дает задвоить движение: одна продажа -> одно движение склада.
         StockMovement.objects.update_or_create(
             source_type='sale',
             source_id=self.pk,
@@ -130,6 +152,7 @@ class Sale(models.Model):
     def delete_stock_movement(self):
         from stock.models import StockMovement
 
+        # source_type + source_id находят движение, созданное именно этой продажей.
         StockMovement.objects.filter(
             source_type='sale',
             source_id=self.pk,
@@ -141,10 +164,12 @@ class Sale(models.Model):
     def clean(self):
         super().clean()
 
+        # product_id — технический id ForeignKey; проверяем, что товар уже выбран.
         if self.product_id and self.quantity:
             available_quantity = self.product.stock_balance
 
             if self.pk:
+                # При редактировании старую величину продажи временно возвращаем в доступный остаток.
                 current_sale_quantity = (
                                             Sale.objects
                                             .filter(pk=self.pk)
@@ -160,6 +185,7 @@ class Sale(models.Model):
                 })
 
 
+# SaleCostAllocation — техническая память продажи: из каких партий списали товар.
 class SaleCostAllocation(models.Model):
     sale = models.ForeignKey(
         Sale,
@@ -182,6 +208,7 @@ class SaleCostAllocation(models.Model):
         verbose_name = 'Списание себестоимости'
         verbose_name_plural = 'Списания себестоимости'
 
+    # total_cost не вводится руками, а считается из количества и себестоимости партии.
     def save(self, *args, **kwargs):
         self.total_cost = self.unit_cost * self.quantity
         super().save(*args, **kwargs)
@@ -190,11 +217,14 @@ class SaleCostAllocation(models.Model):
         return f'Продажа #{self.sale_id} | {self.quantity} шт. из партии #{self.stock_batch_id}'
 
 
+# SaleReturn хранит возврат по конкретной продаже.
 class SaleReturn(models.Model):
+    # TextChoices ограничивает варианты назначения возврата и дает русские подписи в админке.
     class Destination(models.TextChoices):
         BACK_TO_STOCK = 'back_to_stock', 'Вернуть на продажу'
         WRITE_OFF = 'write_off', 'Списать'
 
+    # Возврат всегда оформляется на основании существующей продажи.
     sale = models.ForeignKey(
         Sale,
         on_delete=models.PROTECT,
@@ -219,6 +249,7 @@ class SaleReturn(models.Model):
         super().clean()
 
         if self.sale_id and self.quantity:
+            # Проверяем, сколько товара по этой продаже еще можно вернуть.
             available_quantity = self.get_available_quantity_to_return()
 
             if self.pk:
@@ -237,6 +268,7 @@ class SaleReturn(models.Model):
                 })
 
     def get_available_quantity_to_return(self):
+        # Суммируем уже оформленные возвраты по этой продаже, кроме текущего редактируемого возврата.
         already_returned_quantity = (
                                         self.sale.returns
                                         .exclude(pk=self.pk)
@@ -248,11 +280,13 @@ class SaleReturn(models.Model):
 
     def save(self, *args, **kwargs):
         with transaction.atomic():
+            # full_clean запускает clean() перед сохранением, чтобы не вернуть больше проданного.
             self.full_clean()
             super().save(*args, **kwargs)
             self.sync_stock_movements()
 
             if self.destination == self.Destination.BACK_TO_STOCK:
+                # Если товар возвращается на продажу, возвращаем количество в партии продажи.
                 self.restore_sale_batches()
 
     def delete(self, *args, **kwargs):
@@ -263,6 +297,7 @@ class SaleReturn(models.Model):
     def sync_stock_movements(self):
         from stock.models import StockMovement
 
+        # Основное движение возврата увеличивает расчетный остаток товара.
         StockMovement.objects.update_or_create(
             source_type='sale_return',
             source_id=self.pk,
@@ -274,6 +309,7 @@ class SaleReturn(models.Model):
         )
 
         if self.destination == self.Destination.WRITE_OFF:
+            # Если возврат списан, второе движение сразу вычитает товар из остатка.
             StockMovement.objects.update_or_create(
                 source_type='sale_return_write_off',
                 source_id=self.pk,
@@ -290,6 +326,7 @@ class SaleReturn(models.Model):
             ).delete()
 
     def restore_sale_batches(self):
+        # Возвращаем товар в те партии, из которых он был продан.
         remaining_quantity = self.quantity
 
         for allocation in self.sale.cost_allocations.select_related('stock_batch').order_by('created_at', 'id'):

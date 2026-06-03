@@ -10,6 +10,7 @@ from .models import (
 )
 
 
+# Словарь переводит технический source_type из БД в человекочитаемый текст для админки.
 SOURCE_TYPE_NAMES = {
     'sale': 'Продажа',
     'supply_item': 'Позиция поставки',
@@ -24,6 +25,7 @@ SOURCE_TYPE_NAMES = {
 
 @admin.register(StockMovement)
 class StockMovementAdmin(admin.ModelAdmin):
+    # StockMovement — журнал, поэтому добавление и удаление вручную запрещены ниже.
     list_display = (
         'id',
         'product',
@@ -57,20 +59,25 @@ class StockMovementAdmin(admin.ModelAdmin):
 
     @admin.display(description='Тип источника')
     def display_source_type(self, obj):
+        # obj здесь конкретная запись StockMovement или StockBatch из админки.
         return SOURCE_TYPE_NAMES.get(obj.source_type, obj.source_type)
 
+    # Специальный метод Django admin: запрещает кнопку "Добавить".
     def has_add_permission(self, request):
         return False
 
+    # Просмотр изменения оставлен, но все поля readonly.
     def has_change_permission(self, request, obj=None):
         return True
 
+    # Специальный метод Django admin: запрещает удаление движений склада.
     def has_delete_permission(self, request, obj=None):
         return False
 
 
 @admin.register(StockBatch)
 class StockBatchAdmin(admin.ModelAdmin):
+    # Партии показываем как справочник FIFO, но не создаем руками.
     list_display = (
         'id',
         'product',
@@ -108,6 +115,7 @@ class StockBatchAdmin(admin.ModelAdmin):
     def display_source_type(self, obj):
         return SOURCE_TYPE_NAMES.get(obj.source_type, obj.source_type)
 
+    # Партии создаются поставками, возвратами и складскими операциями, не вручную.
     def has_add_permission(self, request):
         return False
 
@@ -119,6 +127,7 @@ class StockBatchAdmin(admin.ModelAdmin):
 
 
 class StockWriteOffAllocationInline(admin.TabularInline):
+    # Inline показывает, из каких партий было сделано списание.
     model = StockWriteOffAllocation
     verbose_name = 'Списание из партии'
     verbose_name_plural = 'Списания из партий'
@@ -133,6 +142,7 @@ class StockWriteOffAllocationInline(admin.TabularInline):
 
 @admin.register(StockWriteOff)
 class StockWriteOffAdmin(admin.ModelAdmin):
+    # Списания можно создавать, но после создания редактирование и удаление запрещены.
     list_display = (
         'id',
         'product',
@@ -157,6 +167,7 @@ class StockWriteOffAdmin(admin.ModelAdmin):
         return False
 
     def get_readonly_fields(self, request, obj=None):
+        # obj есть при открытии уже созданного списания; тогда все бизнес-поля readonly.
         if obj:
             return (
                 'product',
@@ -170,6 +181,7 @@ class StockWriteOffAdmin(admin.ModelAdmin):
 
 
 class StockReservationAllocationInline(admin.TabularInline):
+    # Inline показывает, какие партии затронул резерв.
     model = StockReservationAllocation
     verbose_name = 'Резерв из партии'
     verbose_name_plural = 'Резервы из партий'
@@ -183,6 +195,7 @@ class StockReservationAllocationInline(admin.TabularInline):
 
 @admin.register(StockReservation)
 class StockReservationAdmin(admin.ModelAdmin):
+    # Резерв создается вручную, а снимается через admin action.
     list_display = (
         'id',
         'product',
@@ -207,6 +220,7 @@ class StockReservationAdmin(admin.ModelAdmin):
 
     @admin.action(description='Снять выбранные резервы')
     def release_reservations(self, request, queryset):
+        # queryset — выбранные в админке резервы.
         released_count = 0
 
         for reservation in queryset:
@@ -226,6 +240,7 @@ class StockReservationAdmin(admin.ModelAdmin):
         return False
 
     def get_readonly_fields(self, request, obj=None):
+        # Созданный резерв нельзя редактировать напрямую; его можно только снять.
         if obj:
             return (
                 'product',

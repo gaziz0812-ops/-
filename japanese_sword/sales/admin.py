@@ -6,6 +6,7 @@ from .forms import SaleAdminForm, SaleReturnAdminForm
 from .models import Sale, SaleCostAllocation, SaleReturn
 
 
+# Inline показывает в продаже, из каких партий FIFO списал товар.
 class SaleCostAllocationInline(admin.TabularInline):
     model = SaleCostAllocation
     verbose_name = 'Партия продажи'
@@ -16,11 +17,13 @@ class SaleCostAllocationInline(admin.TabularInline):
     readonly_fields = ('stock_batch', 'quantity')
 
     def has_add_permission(self, request, obj=None):
+        # Партии продажи создаются кодом FIFO, вручную добавлять их нельзя.
         return False
 
 
 @admin.register(Sale)
 class SaleAdmin(admin.ModelAdmin):
+    # form подключает кастомную форму с data-атрибутами для JS-preview цены и остатка.
     form = SaleAdminForm
     list_display = (
         'display_order_number',
@@ -51,16 +54,20 @@ class SaleAdmin(admin.ModelAdmin):
     )
 
     class Media:
+        # Media подключает JS-файл только на страницах админки этой модели.
         js = ('sales/admin_sale_calculator.js',)
 
     @admin.display(description='Номер заказа', ordering='id')
     def display_order_number(self, obj):
+        # obj здесь конкретная Sale из строки списка админки.
         return obj.id
 
     def has_delete_permission(self, request, obj=None):
+        # Продажа — исторический факт, поэтому удаление через админку запрещено.
         return False
 
     def get_readonly_fields(self, request, obj=None):
+        # При просмотре существующей продажи все бизнес-поля становятся readonly.
         if obj:
             return (
                 'product',
@@ -108,9 +115,11 @@ class SaleReturnAdmin(admin.ModelAdmin):
     )
 
     class Media:
+        # JS показывает preview выбранной продажи при оформлении возврата.
         js = ('sales/admin_sale_return_preview.js',)
 
     def get_urls(self):
+        # get_urls расширяет стандартные URL админки кастомным endpoint для preview продажи.
         urls = super().get_urls()
         custom_urls = [
             path(
@@ -122,6 +131,7 @@ class SaleReturnAdmin(admin.ModelAdmin):
         return custom_urls + urls
 
     def sale_preview(self, request, sale_id):
+        # Этот admin endpoint возвращает JSON с данными продажи для JS-preview.
         sale = Sale.objects.select_related('product', 'customer').get(pk=sale_id)
 
         return JsonResponse({
@@ -136,9 +146,11 @@ class SaleReturnAdmin(admin.ModelAdmin):
         })
 
     def has_delete_permission(self, request, obj=None):
+        # Возврат тоже исторический факт, поэтому удаление через админку запрещено.
         return False
 
     def get_readonly_fields(self, request, obj=None):
+        # После создания возврат нельзя редактировать напрямую.
         if obj:
             return (
                 'sale',

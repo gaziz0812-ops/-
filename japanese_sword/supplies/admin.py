@@ -5,6 +5,7 @@ from django.db import models
 from .models import ManualSupply, ManualSupplyItem, Supply, SupplyItem
 
 
+# Inline позволяет заполнять позиции расчетной поставки прямо внутри формы Supply.
 class SupplyItemInline(admin.TabularInline):
     model = SupplyItem
     verbose_name = 'Позиция поставки'
@@ -17,12 +18,14 @@ class SupplyItemInline(admin.TabularInline):
     )
 
 class ManualSupplyItemInline(admin.TabularInline):
+    # Inline позволяет заполнять ручные позиции прямо внутри формы ManualSupply.
     model = ManualSupplyItem
     verbose_name = 'Ручная позиция поставки'
     verbose_name_plural = 'Ручные позиции поставки'
     extra = 1
     readonly_fields = ('total_cost',)
     formfield_overrides = {
+        # Для TextField в inline уменьшаем textarea, чтобы таблица не растягивалась на полэкрана.
         models.TextField: {
             'widget': forms.Textarea(attrs={'rows': 2, 'cols': 30}),
         },
@@ -31,8 +34,11 @@ class ManualSupplyItemInline(admin.TabularInline):
 
 @admin.register(Supply)
 class SupplyAdmin(admin.ModelAdmin):
+    # save_related вызывается Django admin после сохранения Supply и всех inline-позиций.
     def save_related(self, request, form, formsets, change):
         super().save_related(request, form, formsets, change)
+
+        # После сохранения позиций пересчитываем себестоимость всей поставки.
         form.instance.recalculate_costs()
 
 
@@ -60,6 +66,7 @@ class SupplyAdmin(admin.ModelAdmin):
 
 @admin.register(ManualSupply)
 class ManualSupplyAdmin(admin.ModelAdmin):
+    # Ручная поставка использует inline без юаней/веса/доставки, только ручную себестоимость.
     list_display = (
         'id',
         'supply_date',
