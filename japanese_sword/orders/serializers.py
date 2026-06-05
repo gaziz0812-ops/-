@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 from products.models import Product
 
+from .notifications import send_new_order_notification
 from .models import Order, OrderItem
 
 
@@ -80,5 +81,9 @@ class OrderCreateSerializer(serializers.ModelSerializer):
                     quantity=item_data['quantity'],
                 )
 
+            # Уведомление отправляем после создания всех позиций, чтобы в сообщении была полная сумма заказа.
+            send_new_order_notification(order)
+
         return order
+
     
