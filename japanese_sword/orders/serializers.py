@@ -5,7 +5,9 @@ from products.models import Product
 
 from .notifications import send_new_order_notification
 from .models import Order, OrderItem
-from users.services import get_or_create_telegram_user
+
+# Эти сервисы проверяют Telegram initData и превращают проверенные Telegram-данные в User.
+from users.services import get_or_create_telegram_user, parse_telegram_init_data
 
 
 # Этот serializer описывает одну товарную строку, которую клиент отправляет в заказ.
@@ -58,8 +60,8 @@ class OrderItemReadSerializer(serializers.ModelSerializer):
 
 # Этот serializer принимает данные клиента и список товаров для создания Order.
 class OrderCreateSerializer(serializers.ModelSerializer):
-    # telegram_user принимает данные пользователя Telegram из frontend, но не является полем модели Order.
-    telegram_user = serializers.DictField(write_only=True, required=False)
+    # telegram_init_data принимает сырую подписанную строку Telegram Mini App; в модели Order такого поля нет.
+    telegram_init_data = serializers.CharField(write_only=True, required=False)
 
     # items — вложенный список товаров внутри заказа.
     items = OrderItemCreateSerializer(many=True)
@@ -75,7 +77,7 @@ class OrderCreateSerializer(serializers.ModelSerializer):
             'id',
             'customer_name',
             'telegram_username',
-            'telegram_user',
+            'telegram_init_data',
             'phone',
             'customer_comment',
             'total_amount',
@@ -98,16 +100,23 @@ class OrderCreateSerializer(serializers.ModelSerializer):
         return items
 
     def create(self, validated_data):
-        # Забираем Telegram-данные отдельно, потому что у модели Order нет поля telegram_user.
-        telegram_user_data = validated_data.pop('telegram_user', None)
+        # Забираем initData отдельно, потому что у модели Order нет поля telegram_init_data.
+        telegram_init_data = validated_data.pop('telegram_init_data', None)
 
         # Забираем вложенные товары отдельно, потому что Order не имеет обычного поля items.
         items_data = validated_data.pop('items')
 
         # atomic делает создание заказа и всех позиций одной транзакцией.
         with transaction.atomic():
-            # Если frontend прислал Telegram-данные, находим или создаем User и привязываем его к заказу.
-            if telegram_user_data:
+            # Если frontend прислал initData, сначала проверяем подпись Telegram, потом создаем/находим User.
+            if telegram_init_data:
+                try:
+                    telegram_user_data = parse_telegram_init_data(telegram_init_data)
+                except ValueError as error:
+                    raise serializers.ValidationError({
+                        'telegram_init_data': str(error)
+                    })
+
                 validated_data['customer'] = get_or_create_telegram_user(telegram_user_data)
 
             order = Order.objects.create(**validated_data)
