@@ -1,8 +1,8 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 
-// VITE_API_BASE_URL позволяет переключать frontend между локальным Django и публичным HTTPS API.
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api'
+// VITE_API_BASE_URL позволяет указать отдельный API; по умолчанию идем через Vite proxy на /api.
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 
 // ref хранит список товаров из Django API и обновляет экран при изменении.
 const products = ref([])
