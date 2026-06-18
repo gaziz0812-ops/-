@@ -1,0 +1,78 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div id="content-main">
+    <h1>Сводка продаж</h1>
+    <form method="get" style="display: flex; gap: 12px; align-items: end; margin: 20px 0;">
+    <div>
+        <label for="date_from">Дата с</label><br>
+        <input type="date" id="date_from" name="date_from" value="{{ date_from }}">
+    </div>
+
+    <div>
+        <label for="date_to">Дата по</label><br>
+        <input type="date" id="date_to" name="date_to" value="{{ date_to }}">
+    </div>
+
+    <button type="submit" class="button">Показать</button>
+
+    <a href="{% url 'admin:reports_sales_summary' %}" class="button">Сбросить</a>
+</form>
+
+    <div style="display: grid; grid-template-columns: repeat(5, minmax(140px, 1fr)); gap: 16px; margin: 20px 0;">
+        <div style="padding: 16px; background: var(--darkened-bg); border-radius: 6px;">
+            <strong>Продаж</strong>
+            <div style="font-size: 24px;">{{ summary.sales_count }}</div>
+        </div>
+
+        <div style="padding: 16px; background: var(--darkened-bg); border-radius: 6px;">
+            <strong>Выручка</strong>
+            <div style="font-size: 24px;">{{ summary.revenue }} руб.</div>
+        </div>
+
+        <div style="padding: 16px; background: var(--darkened-bg); border-radius: 6px;">
+            <strong>Прибыль</strong>
+            <div style="font-size: 24px;">{{ summary.profit }} руб.</div>
+        </div>
+
+        <div style="padding: 16px; background: var(--darkened-bg); border-radius: 6px;">
+            <strong>Средний чек</strong>
+            <div style="font-size: 24px;">{{ summary.average_order }} руб.</div>
+        </div>
+
+        <div style="padding: 16px; background: var(--darkened-bg); border-radius: 6px;">
+            <strong>Продано шт.</strong>
+            <div style="font-size: 24px;">{{ summary.sold_items }}</div>
+        </div>
+    </div>
+
+    <h2>Топ товаров по выручке</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Артикул</th>
+                <th>Товар</th>
+                <th>Продано шт.</th>
+                <th>Выручка</th>
+                <th>Прибыль</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for product in top_products %}
+            <tr>
+                <td>{{ product.product__sku }}</td>
+                <td>{{ product.product__name }}</td>
+                <td>{{ product.sold_quantity }}</td>
+                <td>{{ product.revenue }} руб.</td>
+                <td>{{ product.profit }} руб.</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5">Продаж пока нет.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

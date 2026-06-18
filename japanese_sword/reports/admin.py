@@ -1,0 +1,86 @@
+from django.contrib import admin
+from django.db.models import Avg, Count, Sum
+from django.template.response import TemplateResponse
+from django.urls import path
+from django.utils.dateparse import parse_date
+
+from sales.models import Sale
+
+# [OUR] Сохраняем стандартный метод admin.site.get_urls, чтобы не потерять обычные URL админки.
+original_get_urls = admin.site.get_urls
+
+
+# [OUR] Страница отчета по продажам внутри Django admin.
+def sales_summary_view(request):
+    date_from_raw = request.GET.get('date_from', '')
+    date_to_raw = request.GET.get('date_to', '')
+
+    date_from = parse_date(date_from_raw) if date_from_raw else None
+    date_to = parse_date(date_to_raw) if date_to_raw else None
+
+    sales = Sale.objects.select_related('product')
+
+    if date_from:
+        sales = sales.filter(created_at__date__gte=date_from)
+
+    if date_to:
+        sales = sales.filter(created_at__date__lte=date_to)
+
+    summary = sales.aggregate(
+        sales_count=Count('id'),
+        revenue=Sum('total_sale_amount'),
+        profit=Sum('profit'),
+        average_order=Avg('total_sale_amount'),
+        sold_items=Sum('quantity'),
+    )
+
+    top_products = (
+        sales
+        .values('product__sku', 'product__name')
+        .annotate(
+            sold_quantity=Sum('quantity'),
+            revenue=Sum('total_sale_amount'),
+            profit=Sum('profit'),
+        )
+        .order_by('-revenue')[:10]
+    )
+
+    context = {
+        **admin.site.each_context(request),
+        'title': 'Сводка продаж',
+        'date_from': date_from_raw,
+        'date_to': date_to_raw,
+        'summary': {
+            'sales_count': summary['sales_count'] or 0,
+            'revenue': summary['revenue'] or 0,
+            'profit': summary['profit'] or 0,
+            'average_order': summary['average_order'] or 0,
+            'sold_items': summary['sold_items'] or 0,
+        },
+        'top_products': top_products,
+    }
+
+    return TemplateResponse(
+        request,
+        'admin/reports/sales_summary.html',
+        context,
+    )
+
+
+# [OUR] Добавляет наш URL отчета к стандартным URL Django admin.
+def get_reports_urls():
+    urls = original_get_urls()
+
+    custom_urls = [
+        path(
+            'reports/sales-summary/',
+            admin.site.admin_view(sales_summary_view),
+            name='reports_sales_summary',
+        ),
+    ]
+
+    return custom_urls + urls
+
+
+# [DJANGO] Подменяем get_urls у admin.site, чтобы админка знала про нашу страницу отчета.
+admin.site.get_urls = get_reports_urls

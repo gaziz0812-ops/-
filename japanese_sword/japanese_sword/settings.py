@@ -93,6 +93,7 @@ INSTALLED_APPS = [
     'sales',
     'users',
     'orders',
+    'reports',
 ]
 
 AUTH_USER_MODEL = 'users.User'  # Используется кастомная модель user из соответствующего приложения
