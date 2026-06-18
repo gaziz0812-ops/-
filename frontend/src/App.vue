@@ -43,6 +43,7 @@ const isSubmitting = ref(false)
 const errorMessage = ref('')
 const orderResult = ref(null)
 const selectedProduct = ref(null)
+const cartPanel = ref(null)
 
 // computed пересчитывает сумму корзины каждый раз, когда меняются товары или количество.
 // [VUE] computed создает вычисляемое значение; [OUR] cartTotal — сумма корзины.
@@ -50,6 +51,11 @@ const cartTotal = computed(() => {
   return cartItems.value.reduce((total, item) => {
     return total + Number(item.product.sale_price) * item.quantity
   }, 0)
+})
+
+// [VUE] computed считает общее количество штук в корзине для мобильной кнопки.
+const cartItemsCount = computed(() => {
+  return cartItems.value.reduce((total, item) => total + item.quantity, 0)
 })
 
 // computed нужен для удобной проверки: можно ли отправлять заказ.
@@ -234,6 +240,14 @@ function decreaseQuantity(item) {
 // [OUR] Удаляет товар из локальной корзины.
 function removeFromCart(productId) {
   cartItems.value = cartItems.value.filter((item) => item.product.id !== productId)
+}
+
+// [OUR] Скроллит пользователя к корзине, чтобы не листать весь каталог вручную.
+function scrollToCart() {
+  cartPanel.value?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start',
+  })
 }
 
 // [OUR] Форматирует число как цену в рублях для интерфейса.
@@ -449,7 +463,7 @@ function formatApiError(data) {
       </section>
     </section>
 
-    <aside class="cart-panel" aria-label="Корзина">
+    <aside ref="cartPanel" class="cart-panel" aria-label="Корзина">
       <header class="cart-header">
         <div>
           <p class="eyebrow">Заказ</p>
@@ -557,5 +571,16 @@ function formatApiError(data) {
         </template>
       </article>
     </section>
+
+    <button
+      v-if="cartItems.length > 0"
+      type="button"
+      class="floating-cart-button"
+      aria-label="Перейти к корзине"
+      @click="scrollToCart"
+    >
+      <span>Корзина</span>
+      <strong>{{ cartItemsCount }} · {{ formatMoney(cartTotal) }}</strong>
+    </button>
   </main>
 </template>
