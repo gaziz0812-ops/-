@@ -4,7 +4,7 @@ from django.template.response import TemplateResponse
 from django.urls import path
 from django.utils.dateparse import parse_date
 
-from sales.models import Sale
+from sales.models import Sale, SaleReturn
 
 # [OUR] Сохраняем стандартный метод admin.site.get_urls, чтобы не потерять обычные URL админки.
 original_get_urls = admin.site.get_urls
@@ -26,12 +26,25 @@ def sales_summary_view(request):
     if date_to:
         sales = sales.filter(created_at__date__lte=date_to)
 
+    returns = SaleReturn.objects.all()
+
+    if date_from:
+        returns = returns.filter(created_at__date__gte=date_from)
+
+    if date_to:
+        returns = returns.filter(created_at__date__lte=date_to)
+
     summary = sales.aggregate(
         sales_count=Count('id'),
         revenue=Sum('total_sale_amount'),
         profit=Sum('profit'),
         average_order=Avg('total_sale_amount'),
         sold_items=Sum('quantity'),
+    )
+
+    returns_summary = returns.aggregate(
+        refund_amount=Sum('refund_amount'),
+        returns_count=Count('id'),
     )
 
     top_products = (
@@ -45,6 +58,10 @@ def sales_summary_view(request):
         .order_by('-revenue')[:10]
     )
 
+    revenue = summary['revenue'] or 0
+    refund_amount = returns_summary['refund_amount'] or 0
+    net_revenue = revenue - refund_amount
+
     context = {
         **admin.site.each_context(request),
         'title': 'Сводка продаж',
@@ -52,7 +69,10 @@ def sales_summary_view(request):
         'date_to': date_to_raw,
         'summary': {
             'sales_count': summary['sales_count'] or 0,
-            'revenue': summary['revenue'] or 0,
+            'revenue': revenue,
+            'refund_amount': refund_amount,
+            'net_revenue': net_revenue,
+            'returns_count': returns_summary['returns_count'] or 0,
             'profit': summary['profit'] or 0,
             'average_order': summary['average_order'] or 0,
             'sold_items': summary['sold_items'] or 0,

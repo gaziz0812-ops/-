@@ -19,7 +19,7 @@
     <a href="{% url 'admin:reports_sales_summary' %}" class="button">Сбросить</a>
 </form>
 
-    <div style="display: grid; grid-template-columns: repeat(5, minmax(140px, 1fr)); gap: 16px; margin: 20px 0;">
+    <div style="display: grid; grid-template-columns: repeat(7, minmax(140px, 1fr)); gap: 16px; margin: 20px 0;">
         <div style="padding: 16px; background: var(--darkened-bg); border-radius: 6px;">
             <strong>Продаж</strong>
             <div style="font-size: 24px;">{{ summary.sales_count }}</div>
@@ -28,6 +28,17 @@
         <div style="padding: 16px; background: var(--darkened-bg); border-radius: 6px;">
             <strong>Выручка</strong>
             <div style="font-size: 24px;">{{ summary.revenue }} руб.</div>
+        </div>
+
+        <div style="padding: 16px; background: var(--darkened-bg); border-radius: 6px;">
+            <strong>Возвраты</strong>
+            <div style="font-size: 24px;">{{ summary.refund_amount }} руб.</div>
+            <div>{{ summary.returns_count }} шт.</div>
+        </div>
+
+        <div style="padding: 16px; background: var(--darkened-bg); border-radius: 6px;">
+            <strong>Чистая выручка</strong>
+            <div style="font-size: 24px;">{{ summary.net_revenue }} руб.</div>
         </div>
 
         <div style="padding: 16px; background: var(--darkened-bg); border-radius: 6px;">
