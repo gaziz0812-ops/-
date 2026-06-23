@@ -19,6 +19,52 @@
     <a href="{% url 'admin:reports_sales_summary' %}" class="button">Сбросить</a>
 </form>
 
+    <h2>Заказы</h2>
+
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(140px, 1fr)); gap: 16px; margin: 20px 0;">
+        <div style="padding: 16px; background: var(--darkened-bg); border-radius: 6px;">
+            <strong>Всего заказов</strong>
+            <div style="font-size: 24px;">{{ orders_summary.orders_count }}</div>
+        </div>
+
+        <div style="padding: 16px; background: var(--darkened-bg); border-radius: 6px;">
+            <strong>Сумма заказов</strong>
+            <div style="font-size: 24px;">{{ orders_summary.orders_amount }} руб.</div>
+        </div>
+
+        <div style="padding: 16px; background: var(--darkened-bg); border-radius: 6px;">
+            <strong>Ждут оплаты</strong>
+            <div style="font-size: 24px;">{{ orders_summary.waiting_payment }}</div>
+        </div>
+
+        <div style="padding: 16px; background: var(--darkened-bg); border-radius: 6px;">
+            <strong>Оплачены</strong>
+            <div style="font-size: 24px;">{{ orders_summary.paid }}</div>
+        </div>
+
+        <div style="padding: 16px; background: var(--darkened-bg); border-radius: 6px;">
+            <strong>Новые</strong>
+            <div style="font-size: 24px;">{{ orders_summary.new }}</div>
+        </div>
+
+        <div style="padding: 16px; background: var(--darkened-bg); border-radius: 6px;">
+            <strong>В работе</strong>
+            <div style="font-size: 24px;">{{ orders_summary.in_progress }}</div>
+        </div>
+
+        <div style="padding: 16px; background: var(--darkened-bg); border-radius: 6px;">
+            <strong>Продажа проведена</strong>
+            <div style="font-size: 24px;">{{ orders_summary.sold }}</div>
+        </div>
+
+        <div style="padding: 16px; background: var(--darkened-bg); border-radius: 6px;">
+            <strong>Отправлены</strong>
+            <div style="font-size: 24px;">{{ orders_summary.shipped }}</div>
+        </div>
+    </div>
+
+    <h2>Продажи</h2>
+
     <div style="display: grid; grid-template-columns: repeat(7, minmax(140px, 1fr)); gap: 16px; margin: 20px 0;">
         <div style="padding: 16px; background: var(--darkened-bg); border-radius: 6px;">
             <strong>Продаж</strong>
