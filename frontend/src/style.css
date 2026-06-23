@@ -83,6 +83,18 @@ h2 {
   text-align: right;
 }
 
+.catalog-header-side {
+  display: grid;
+  justify-items: end;
+  gap: 12px;
+}
+
+.catalog-header-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .state-message {
   padding: 20px;
   color: #57534e;
@@ -386,6 +398,59 @@ h2 {
   font-weight: 800;
 }
 
+.customer-orders {
+  display: grid;
+  gap: 14px;
+  margin-top: 24px;
+  padding-top: 22px;
+  border-top: 1px solid #e7e5e4;
+}
+
+.orders-header,
+.order-card-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.orders-list {
+  display: grid;
+  gap: 12px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.order-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  background: #fafaf9;
+  border: 1px solid #e7e5e4;
+  border-radius: 8px;
+}
+
+.order-card-header strong {
+  color: #18181b;
+}
+
+.order-card-header span {
+  color: #0f766e;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.order-items-list {
+  display: grid;
+  gap: 6px;
+  padding-left: 18px;
+  margin: 0;
+  color: #57534e;
+  font-size: 13px;
+}
+
 .detail-backdrop {
   position: fixed;
   inset: 0;
@@ -450,6 +515,23 @@ h2 {
 
   .catalog-note {
     text-align: left;
+  }
+
+  .catalog-header-side {
+    justify-items: start;
+    width: 100%;
+  }
+
+  .catalog-header-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .catalog-header-actions .primary-button,
+  .catalog-header-actions .secondary-button {
+    width: 100%;
+    min-width: 0;
   }
 
   .filters-panel {

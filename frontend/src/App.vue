@@ -44,6 +44,16 @@ const errorMessage = ref('')
 const orderResult = ref(null)
 const selectedProduct = ref(null)
 const cartPanel = ref(null)
+const ordersPanel = ref(null)
+
+// [OUR] Список заказов текущего Telegram-пользователя.
+const customerOrders = ref([])
+
+// [OUR] Отдельный флаг загрузки для блока "Мои заказы".
+const isOrdersLoading = ref(false)
+
+// [OUR] Отдельная ошибка для заказов, чтобы не смешивать ее с ошибками каталога.
+const ordersErrorMessage = ref('')
 
 // computed пересчитывает сумму корзины каждый раз, когда меняются товары или количество.
 // [VUE] computed создает вычисляемое значение; [OUR] cartTotal — сумма корзины.
@@ -69,6 +79,7 @@ onMounted(() => {
   initializeTelegramWebApp()
   fillTelegramCustomerFields()
   loadProducts()
+  loadCustomerOrders()
 })
 
 function getTelegramWebApp() {
@@ -142,6 +153,39 @@ async function loadProducts() {
     errorMessage.value = error.message
   } finally {
     isLoading.value = false
+  }
+}
+
+// [OUR] Загружает заказы текущего Telegram-пользователя.
+async function loadCustomerOrders() {
+  const telegramInitData = getTelegramInitData()
+
+  // В обычном браузере initData нет, поэтому "Мои заказы" полноценно работают внутри Telegram Mini App.
+  if (!telegramInitData) {
+    return
+  }
+
+  isOrdersLoading.value = true
+  ordersErrorMessage.value = ''
+
+  try {
+    // [WEB] GET-запрос к backend: просим вернуть только заказы текущего Telegram-пользователя.
+    const response = await fetch(
+      `${API_BASE_URL}/orders/my/?telegram_init_data=${encodeURIComponent(telegramInitData)}`,
+    )
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(formatApiError(data))
+    }
+
+    // DRF pagination возвращает список внутри results.
+    customerOrders.value = data.results
+  } catch (error) {
+    ordersErrorMessage.value = error.message
+  } finally {
+    isOrdersLoading.value = false
   }
 }
 
@@ -245,6 +289,14 @@ function removeFromCart(productId) {
 // [OUR] Скроллит пользователя к корзине, чтобы не листать весь каталог вручную.
 function scrollToCart() {
   cartPanel.value?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start',
+  })
+}
+
+// [OUR] Скроллит пользователя к истории заказов, чтобы не искать ее внизу правой панели.
+function scrollToOrders() {
+  ordersPanel.value?.scrollIntoView({
     behavior: 'smooth',
     block: 'start',
   })
@@ -358,6 +410,7 @@ async function submitOrder() {
     orderResult.value = data
     cartItems.value = []
     customerForm.customer_comment = ''
+    loadCustomerOrders()
   } catch (error) {
     errorMessage.value = error.message
   } finally {
@@ -391,7 +444,23 @@ function formatApiError(data) {
           <p class="eyebrow">Japanese Sword</p>
           <h1>Каталог</h1>
         </div>
-        <p class="catalog-note">Товары в наличии, заказ оформляется через Telegram.</p>
+
+        <div class="catalog-header-side">
+          <p class="catalog-note">Товары в наличии, заказ оформляется через Telegram.</p>
+          <div class="catalog-header-actions">
+            <button type="button" class="secondary-button" @click="scrollToOrders">
+              Мои заказы
+            </button>
+            <button
+              v-if="cartItems.length > 0"
+              type="button"
+              class="primary-button"
+              @click="scrollToCart"
+            >
+              Корзина
+            </button>
+          </div>
+        </div>
       </header>
 
       <form class="filters-panel" @submit.prevent="loadProducts">
@@ -540,6 +609,46 @@ function formatApiError(data) {
       <section v-if="orderResult" class="order-result">
         <p class="success-title">Заказ #{{ orderResult.id }} создан</p>
         <p>Сумма: {{ formatMoney(orderResult.total_amount) }}</p>
+      </section>
+
+      <section ref="ordersPanel" class="customer-orders">
+        <header class="orders-header">
+          <div>
+            <p class="eyebrow">История</p>
+            <h2>Мои заказы</h2>
+          </div>
+
+          <button type="button" class="ghost-button" @click="loadCustomerOrders">
+            Обновить
+          </button>
+        </header>
+
+        <p v-if="isOrdersLoading" class="state-message">Загружаем заказы...</p>
+        <p v-else-if="ordersErrorMessage" class="form-error">{{ ordersErrorMessage }}</p>
+        <p v-else-if="customerOrders.length === 0" class="empty-cart">
+          Заказы появятся здесь после оформления через Telegram.
+        </p>
+
+        <ul v-else class="orders-list">
+          <li v-for="order in customerOrders" :key="order.id" class="order-card">
+            <div class="order-card-header">
+              <strong>Заказ #{{ order.id }}</strong>
+              <span>{{ order.status_display }}</span>
+            </div>
+
+            <p class="cart-meta">Сумма: {{ formatMoney(order.total_amount) }}</p>
+
+            <p v-if="order.tracking_number" class="cart-meta">
+              Трек: {{ order.tracking_number }}
+            </p>
+
+            <ul class="order-items-list">
+              <li v-for="item in order.items" :key="`${order.id}-${item.product}`">
+                Арт. {{ item.sku }} — {{ item.name }} x {{ item.quantity }}
+              </li>
+            </ul>
+          </li>
+        </ul>
       </section>
     </aside>
 

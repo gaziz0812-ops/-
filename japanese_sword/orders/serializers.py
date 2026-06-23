@@ -166,3 +166,33 @@ class OrderCreateSerializer(serializers.ModelSerializer):
         ).data
 
         return representation
+
+
+# Этот serializer показывает покупателю уже созданный заказ.
+# [OUR] Название класса наше; [DRF] ModelSerializer строит JSON на основе модели Order.
+class CustomerOrderSerializer(serializers.ModelSerializer):
+    # items берутся через related_name='items' из OrderItem.order.
+    # [DRF] read_only=True означает, что через этот serializer позиции нельзя менять, только читать.
+    items = OrderItemReadSerializer(many=True, read_only=True)
+
+    # get_status_display берет русское название статуса из TextChoices модели Order.Status.
+    # [DRF] source указывает, откуда взять значение для поля JSON.
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    # [DRF] Meta — настройки serializer: какая модель и какие поля попадут в JSON.
+    class Meta:
+        # model связывает serializer с моделью Order.
+        model = Order
+
+        # fields перечисляет данные, которые покупатель увидит в ответе API.
+        fields = (
+            'id',
+            'status',
+            'status_display',
+            'total_amount',
+            'paid_at',
+            'shipped_at',
+            'tracking_number',
+            'created_at',
+            'items',
+        )
