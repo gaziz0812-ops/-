@@ -1,0 +1,8 @@
+# Runtime dependencies for the Django backend and Telegram bot.
+# Dev/type-checking packages like django-stubs are intentionally not included here.
+
+Django==6.0.5
+djangorestframework==3.17.1
+django-cors-headers==4.9.0
+Pillow==12.2.0
+aiogram==3.29.0
