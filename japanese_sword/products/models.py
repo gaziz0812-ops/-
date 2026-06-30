@@ -47,3 +47,22 @@ class Product(models.Model):
 
         # Остаток считается из журнала движений, а не хранится отдельным полем в Product.
         return inbound + returned + unreserve - sale - write_off - reserve
+
+
+class ProductImage(models.Model):
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name='images',
+        verbose_name='Товар',
+    )
+    image = models.ImageField('Фото', upload_to='products/gallery/')
+    sort_order = models.PositiveIntegerField('Порядок', default=0)
+
+    class Meta:
+        verbose_name = 'Фото товара'
+        verbose_name_plural = 'Фотографии товара'
+        ordering = ('sort_order', 'id')
+
+    def __str__(self):
+        return f'Фото товара: {self.product}'

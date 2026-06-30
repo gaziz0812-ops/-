@@ -22,6 +22,12 @@ export default defineConfig({
         // [VITE] changeOrigin подменяет Host-заголовок на target, чтобы backend видел локальный origin.
         changeOrigin: true,
       },
+
+      '/media': {
+        // [OUR] Загруженные фото товара тоже проксируем в Django через frontend/ngrok.
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+      },
     },
   },
 })

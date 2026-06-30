@@ -1,6 +1,11 @@
 from django.contrib import admin
 
-from .models import Product
+from .models import Product, ProductImage
+
+
+class ProductImageInline(admin.TabularInline):
+    model = ProductImage
+    extra = 1
 
 
 # @admin.register связывает модель Product с настройками ProductAdmin в админке.
@@ -15,8 +20,12 @@ class ProductAdmin(admin.ModelAdmin):
     # search_fields включает поиск по артикулу и названию товара.
     search_fields = ('sku', 'name')
 
+    inlines = (ProductImageInline,)
+
     # admin.display задает название вычисляемой колонки в админке.
     @admin.display(description='Остаток')
     def display_stock_balance(self, obj):
         # obj здесь конкретный Product из строки админки, не ProductAdmin.
         return obj.stock_balance
+
+

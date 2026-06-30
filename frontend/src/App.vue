@@ -659,8 +659,18 @@ function formatApiError(data) {
         <template v-else>
           <button type="button" class="detail-close" @click="closeProductDetail">Закрыть</button>
 
+          <div v-if="selectedProduct.images?.length" class="detail-gallery">
+            <img
+              v-for="image in selectedProduct.images"
+              :key="image.id"
+              :src="image.image"
+              :alt="selectedProduct.name"
+              class="detail-image"
+            >
+          </div>
+
           <img
-            v-if="selectedProduct.image"
+            v-else-if="selectedProduct.image"
             :src="selectedProduct.image"
             :alt="selectedProduct.name"
             class="detail-image"
