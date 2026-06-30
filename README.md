@@ -32,7 +32,8 @@ Backend:
 - Django REST Framework
 - Django ORM
 - Django Admin
-- SQLite на текущем этапе разработки
+- PostgreSQL
+- Docker Compose для локальной базы данных
 
 Frontend:
 
@@ -255,36 +256,55 @@ Telegram-бот используется для:
 
 ## Локальный запуск
 
-### 1. Backend
+### 1. PostgreSQL
 
-Перейти в папку backend-проекта:
+PostgreSQL запускается через Docker Compose. Это значит, что база данных живет не в файле `db.sqlite3`, а в отдельном контейнере.
+
+Из корня проекта:
 
 ```powershell
-cd "C:\Users\gaga1\Documents\Проектный проект\japanese_sword"
+cd C:\Users\gaga1\Documents\japanese_sword_crm
+docker compose up -d
+```
+
+Проверить, что контейнер запущен:
+
+```powershell
+docker ps
+```
+
+В списке должен быть контейнер `japanese_sword_db`.
+
+### 2. Backend
+
+Перейти в корень проекта:
+
+```powershell
+cd C:\Users\gaga1\Documents\japanese_sword_crm
 ```
 
 Активировать виртуальное окружение:
 
 ```powershell
-..\.venv\Scripts\Activate.ps1
-```
-
-Если PowerShell ругается на путь, использовать точный путь:
-
-```powershell
-C:\Users\gaga1\Documents\Проектный проект\.venv\Scripts\Activate.ps1
+.\.venv\Scripts\Activate.ps1
 ```
 
 Применить миграции:
 
 ```powershell
-python manage.py migrate
+python .\japanese_sword\manage.py migrate
+```
+
+Если база новая, создать администратора:
+
+```powershell
+python .\japanese_sword\manage.py createsuperuser
 ```
 
 Запустить Django:
 
 ```powershell
-python manage.py runserver 8000
+python .\japanese_sword\manage.py runserver 8000
 ```
 
 Админка:
@@ -293,12 +313,12 @@ python manage.py runserver 8000
 http://127.0.0.1:8000/admin/
 ```
 
-### 2. Frontend
+### 3. Frontend
 
 В отдельном терминале:
 
 ```powershell
-cd "C:\Users\gaga1\Documents\Проектный проект\frontend"
+cd C:\Users\gaga1\Documents\japanese_sword_crm\frontend
 npm run dev
 ```
 
@@ -308,15 +328,18 @@ npm run dev
 http://127.0.0.1:5173/
 ```
 
-### 3. Telegram bot
+### 4. Telegram bot
 
-В отдельном терминале из папки `japanese_sword`:
+В отдельном терминале из корня проекта:
 
 ```powershell
+cd C:\Users\gaga1\Documents\japanese_sword_crm
+.\.venv\Scripts\Activate.ps1
+cd .\japanese_sword
 python -m telegram_bot.main
 ```
 
-### 4. ngrok
+### 5. ngrok
 
 Для тестирования Telegram Mini App нужен HTTPS.
 
@@ -335,7 +358,6 @@ ngrok http 8000
 URL фронтенда указывается в `TELEGRAM_WEB_APP_URL`.
 
 Backend ngrok URL нужен, если Telegram Mini App должен обращаться не к локальному `127.0.0.1`, а к публичному HTTPS-адресу.
-
 ## Переменные окружения
 
 Пример лежит в `.env.example`.
@@ -349,6 +371,12 @@ DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_ADMIN_CHAT_ID=
 TELEGRAM_WEB_APP_URL=
+DB_ENGINE=django.db.backends.postgresql
+DB_NAME=japanese_sword
+DB_USER=japanese_sword
+DB_PASSWORD=japanese_sword_password
+DB_HOST=127.0.0.1
+DB_PORT=5432
 ```
 
 Файл `.env` не должен попадать в Git, потому что там лежат секреты.
@@ -414,25 +442,49 @@ TELEGRAM_WEB_APP_URL=
 - Проверить складской блок.
 - Проверить товары с низким остатком.
 
-## Что еще нужно сделать для более взрослой версии
+## Подготовка к развертыванию
 
 ### PostgreSQL
 
-Сейчас используется SQLite. Для production и более серьезной демонстрации лучше перейти на PostgreSQL.
+Проект уже переключен на PostgreSQL. Локально база поднимается через Docker Compose.
 
-Причина: PostgreSQL ближе к реальным backend-проектам, лучше подходит для продакшена и указан в исходном ТЗ.
+Почему это важно:
+
+- PostgreSQL лучше подходит для реальных бизнес-данных, чем SQLite;
+- база работает как отдельный сервис, а не как файл внутри проекта;
+- проще настраивать резервное копирование;
+- поведение ближе к production-окружению;
+- проект готов к дальнейшему Docker-развертыванию.
 
 ### Docker
 
-Следующий инфраструктурный шаг - Docker Compose:
+Сейчас через Docker Compose запускается PostgreSQL. Следующий шаг для полноценного развертывания - добавить контейнеры:
 
 - backend;
-- PostgreSQL;
 - frontend;
 - возможно отдельный сервис бота.
 
-Это упростит запуск проекта на другом компьютере.
+После этого проект можно будет запускать одной командой:
 
+```powershell
+docker compose up -d
+```
+
+Пока backend, frontend и bot запускаются локально, а PostgreSQL уже живет в Docker.
+
+### Перед развертыванием
+
+Нужно будет отдельно проверить:
+
+- `DJANGO_DEBUG=False`;
+- нормальный `DJANGO_SECRET_KEY`;
+- `DJANGO_ALLOWED_HOSTS` с доменом или IP сервера;
+- HTTPS для Telegram Mini App;
+- хранение медиафайлов товаров;
+- резервные копии PostgreSQL;
+- запуск backend через production-сервер, например Gunicorn;
+- раздачу статики и проксирование через Nginx;
+- отдельные переменные окружения для сервера.
 ### Тесты
 
 Нужно добавить точечные тесты на бизнес-логику:
