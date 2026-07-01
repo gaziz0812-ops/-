@@ -33,7 +33,7 @@ const customerForm = reactive({
 const filters = reactive({
   search: '',
   ordering: 'name',
-  stock: 'all',
+  stock: 'available',
   min_price: '',
   max_price: '',
 })
@@ -230,7 +230,7 @@ function buildProductQuery() {
 function resetFilters() {
   filters.search = ''
   filters.ordering = 'name'
-  filters.stock = 'all'
+  filters.stock = 'available'
   filters.min_price = ''
   filters.max_price = ''
   loadProducts()
