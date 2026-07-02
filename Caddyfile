@@ -5,6 +5,8 @@
 {$DOMAIN} {
     encode gzip
 
+    redir /admin /admin/
+
     handle /api/* {
         reverse_proxy backend:8000
     }
